@@ -114,7 +114,7 @@ public class SingleFileStore<K, V> implements AdvancedLoadWriteStore<K, V> {
                throw log.directoryCannotBeCreated(dir.getAbsolutePath());
             }
          }
-         channel = new RandomAccessFile(file, "rw").getChannel();
+         channel = new RandomAccessFile(file, "rwd").getChannel();
 
          // initialize data structures
          entries = newEntryMap();
