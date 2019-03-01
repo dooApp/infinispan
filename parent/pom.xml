@@ -1474,6 +1474,16 @@
                      </excludes>
                   </configuration>
                </execution>
+               <execution>
+                  <id>jar</id>
+                  <phase>package</phase>
+                  <goals>
+                     <goal>jar</goal>
+                  </goals>
+                  <configuration>
+                     <classifier>dooapp</classifier>
+                  </configuration>
+               </execution>
             </executions>
             <configuration>
                <archive>
