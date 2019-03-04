@@ -4,7 +4,7 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-bom</artifactId>
-      <version>7.2.7-SNAPSHOT</version>
+      <version>7.2.6.dooapp</version>
       <relativePath>../bom/pom.xml</relativePath>
    </parent>
    <artifactId>infinispan-parent</artifactId>
@@ -1472,16 +1472,6 @@
                      <excludes>
                         <excludes>**/jbossts-properties.xml</excludes>
                      </excludes>
-                  </configuration>
-               </execution>
-               <execution>
-                  <id>jar</id>
-                  <phase>package</phase>
-                  <goals>
-                     <goal>jar</goal>
-                  </goals>
-                  <configuration>
-                     <classifier>dooapp</classifier>
                   </configuration>
                </execution>
             </executions>
