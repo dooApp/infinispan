@@ -1,24 +1,12 @@
 package org.infinispan.marshall.core;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-
 import org.infinispan.test.AbstractInfinispanTest;
-import org.jboss.marshalling.ByteInput;
-import org.jboss.marshalling.ByteOutput;
-import org.jboss.marshalling.ContextClassResolver;
-import org.jboss.marshalling.Marshaller;
-import org.jboss.marshalling.MarshallerFactory;
-import org.jboss.marshalling.Marshalling;
-import org.jboss.marshalling.MarshallingConfiguration;
-import org.jboss.marshalling.Unmarshaller;
-import org.jboss.marshalling.reflect.SunReflectiveCreator;
+import org.jboss.marshalling.*;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import java.io.*;
 
 /**
  * Test the behaivour of JBoss Marshalling library itself. This class has been created to 
@@ -35,7 +23,6 @@ public class JBossMarshallingTest extends AbstractInfinispanTest {
    public void setUp() throws Exception {
       factory = (MarshallerFactory) Thread.currentThread().getContextClassLoader().loadClass("org.jboss.marshalling.river.RiverMarshallerFactory").newInstance();
       MarshallingConfiguration configuration = new MarshallingConfiguration();
-      configuration.setCreator(new SunReflectiveCreator());
       configuration.setClassResolver(new ContextClassResolver());
       
       marshaller = factory.createMarshaller(configuration);
