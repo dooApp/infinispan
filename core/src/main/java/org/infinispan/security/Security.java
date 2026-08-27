@@ -2,7 +2,6 @@ package org.infinispan.security;
 
 import java.security.AccessControlContext;
 import java.security.AccessControlException;
-import java.security.AccessController;
 import java.security.Principal;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
@@ -165,15 +164,17 @@ public final class Security {
    /**
     * If using {@link Security#doAs(Subject, PrivilegedAction)} or
     * {@link Security#doAs(Subject, PrivilegedExceptionAction)}, returns the {@link Subject} associated with the current thread
-    * otherwise it returns the {@link Subject} associated with the current {@link AccessControlContext}
+    * otherwise it returns {@code null}.
+    * <p>
+    * JDK 24+ (JEP 486): {@code Subject.getSubject(AccessControlContext)} throws
+    * {@code UnsupportedOperationException} unconditionally, so the {@link AccessControlContext}
+    * can no longer carry a {@link Subject}; the thread-local set by {@code doAs} is the only source.
     */
    public static Subject getSubject() {
       if (SUBJECT.get() != null) {
          return SUBJECT.get().peek();
-      } else {
-         AccessControlContext acc = AccessController.getContext();
-         return Subject.getSubject(acc);
       }
+      return null;
    }
 
    /**

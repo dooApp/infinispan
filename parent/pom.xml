@@ -1291,6 +1291,16 @@
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>
                 <version>${version.maven.scala}</version>
+                <!-- The script goal's URLClassLoader mangles Windows paths (file://C:\...), so the
+                     script can only load classes from the plugin classloader at runtime; scala-library
+                     must therefore be a dependency of the plugin itself. -->
+                <dependencies>
+                   <dependency>
+                      <groupId>org.scala-lang</groupId>
+                      <artifactId>scala-library</artifactId>
+                      <version>${version.scala}</version>
+                   </dependency>
+                </dependencies>
                 <executions>
                    
                    <execution>
@@ -1326,12 +1336,18 @@
                       </goals>
                       <configuration>
                          <keepGeneratedScript>true</keepGeneratedScript>
-                         
+                         <!-- Drop the plugin-level genjavadoc args/compilerPlugins for this execution:
+                              the script lives in the default package, and genjavadoc writes default-package
+                              stubs to a directory literally named "<empty>", which is invalid on Windows. -->
+                         <args combine.self="override"></args>
+                         <compilerPlugins combine.self="override"></compilerPlugins>
                          <script>
                            
                              import scala.io.Source
                              import java.io.{File, PrintWriter}
-                             val serviceDir = new File(project.getBuild().getOutputDirectory() + "/META-INF/services")
+                             // ${project.build.outputDirectory} is interpolated by Maven before compilation;
+                             // the plugin's own `project` script binding never works on Windows.
+                             val serviceDir = new File("""${project.build.outputDirectory}""" + "/META-INF/services")
                              if (serviceDir.exists &amp;&amp; serviceDir.listFiles.length != 0) {
                                 val services =
                                    for (file &lt;- serviceDir.listFiles; line &lt;- Source.fromFile(file).getLines())
@@ -1340,7 +1356,7 @@
                                           "&lt;bean id=\"" + beanName + "\" class=\"" + line + "\"/&gt;" + "\n" +
                                           "&lt;service ref=\"" + beanName + "\" interface=\"" + file.getName + "\"/&gt;\n"
                                          }
-                                val targetBlueprint = new File(project.getBuild().getOutputDirectory() + "/OSGI-INF/blueprint/blueprint.xml")
+                                val targetBlueprint = new File("""${project.build.outputDirectory}""" + "/OSGI-INF/blueprint/blueprint.xml")
                                 val input = Source.fromFile(targetBlueprint).getLines.mkString("\n")
                                 val output = new PrintWriter(targetBlueprint)
                                 try {
