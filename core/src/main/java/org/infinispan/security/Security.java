@@ -1,5 +1,6 @@
 package org.infinispan.security;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessControlContext;
 import java.security.AccessControlException;
@@ -85,9 +86,9 @@ public final class Security {
       if (pkg == null) {
          return false;
       }
-      // "org.infinispan" itself, not only its subpackages: CacheImpl and DefaultCacheManager live in it.
-      String name = pkg.getName();
-      return name.equals("org.infinispan") || name.startsWith("org.infinispan.");
+      // Subpackages only: no class of the bare "org.infinispan" package calls doPrivileged - it holds the
+      // Cache/AdvancedCache interfaces, AbstractDelegatingCache and Version, none of which do.
+      return pkg.getName().startsWith("org.infinispan.");
    }
 
    public static <T> T doPrivileged(PrivilegedAction<T> action) {
@@ -211,6 +212,17 @@ public final class Security {
       }
       try {
          return (Subject) SUBJECT_CURRENT.invoke(null);
+      } catch (InvocationTargetException e) {
+         // Do not let what Subject.current() itself threw surface as an unrelated IllegalStateException:
+         // AuthorizationHelper.checkPermission only handles SecurityException, and would miss the audited denial.
+         Throwable cause = e.getCause();
+         if (cause instanceof RuntimeException) {
+            throw (RuntimeException) cause;
+         }
+         if (cause instanceof Error) {
+            throw (Error) cause;
+         }
+         throw new IllegalStateException("Could not invoke Subject.current()", cause);
       } catch (ReflectiveOperationException e) {
          throw new IllegalStateException("Could not invoke Subject.current()", e);
       }
