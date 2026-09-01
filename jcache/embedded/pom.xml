@@ -104,17 +104,6 @@
          </plugin>
 
          <plugin>
-            <groupId>org.scala-tools</groupId>
-            <artifactId>maven-scala-plugin</artifactId>
-            <executions>
-               <execution>
-                  <id>generate-blueprint</id>
-                  <phase>prepare-package</phase>
-               </execution>
-            </executions>
-         </plugin>
-         
-         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-invoker-plugin</artifactId>
             <version>${version.maven.invoker}</version>

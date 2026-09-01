@@ -55,7 +55,7 @@
       <infinispan.codename>Insanely Bad Elf</infinispan.codename>
       <infinispan.core.schema.version>7.2</infinispan.core.schema.version>
 
-      <version.java>1.7</version.java>
+      <version.java>1.8</version.java>
       
       <version.maven-compiler-plugin>3.1</version.maven-compiler-plugin>
       
@@ -469,7 +469,13 @@
                   <excludes>
                      <exclude>**/package-info.java</exclude>
                   </excludes>
-                  <compilerArgument>-AtranslationFilesPath=${project.basedir}/target/generated-translation-files</compilerArgument>
+                  <compilerArgs>
+                     <!-- JDK 23+ no longer enables annotation processing just because a processor happens to be on
+                          the classpath. Without this, jboss-logging-processor never runs and the generated
+                          *_$logger implementations are missing from the jars. Requires JDK 21+ to build. -->
+                     <arg>-proc:full</arg>
+                     <arg>-AtranslationFilesPath=${project.basedir}/target/generated-translation-files</arg>
+                  </compilerArgs>
                </configuration>
             </plugin>
          </plugins>
