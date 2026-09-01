@@ -83,7 +83,12 @@
       <defaultTestGroup>functional,unit,arquillian</defaultTestGroup>
       
       <defaultExcludedTestGroup>unstable,stress,unstable_xsite</defaultExcludedTestGroup>
-      <forkJvmArgs>-Xmx1024m -XX:MaxPermSize=256m</forkJvmArgs>
+      <!-- add-opens flags are mandatory on JDK 9+: java.lang for the test framework (Mockito/cglib calls
+           setAccessible on ClassLoader.defineClass), java.util* for production marshalling (jboss-marshalling
+           calls setAccessible on the serialization members of every Serializable it marshals). Kept in their
+           own property so the customForkJvmArgs profile can override the memory settings without dropping them. -->
+      <forkJvmAddOpens>--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.locks=ALL-UNNAMED</forkJvmAddOpens>
+      <forkJvmArgs>-Xmx1024m ${forkJvmAddOpens}</forkJvmArgs>
       <testNGListener>org.infinispan.test.fwk.UnitTestTestNGListener</testNGListener>
       <infinispan.test.parallel.threads>15</infinispan.test.parallel.threads>
       <infinispan.test.jgroups.protocol>tcp</infinispan.test.jgroups.protocol>
@@ -135,6 +140,7 @@
       <version.javax.servlet>2.5</version.javax.servlet>
       <version.jbossjta>5.0.4.Final</version.jbossjta>
       <version.jboss.logging.processor>1.1.0.Final</version.jboss.logging.processor>
+      <version.javax.annotation.api>1.3.2</version.javax.annotation.api>
       <version.jboss.logmanager>1.3.1.Final</version.jboss.logmanager>
       <version.jboss.remotingjmx>2.0.0.Final</version.jboss.remotingjmx>
       <version.jboss.sasl>1.0.4.Final</version.jboss.sasl>
@@ -180,7 +186,7 @@
       <version.maven.scala>2.15.2</version.maven.scala>
       <version.maven.surefire>2.17</version.maven.surefire>
       <version.maven.invoker>1.8</version.maven.invoker>
-      <version.metainf-services>1.5</version.metainf-services>
+      <version.metainf-services>1.7</version.metainf-services>
       <version.jacoco>0.5.10.201208310627</version.jacoco>
       <version.asm>3.3.1</version.asm>
       <version.pax.url>2.2.0</version.pax.url>
@@ -1069,6 +1075,14 @@
          <version>${version.jboss.logging.processor}</version>
          <scope>provided</scope>
       </dependency>
+      <!-- jboss-logging-processor annotates the code it generates with @javax.annotation.Generated, dropped from
+           the JDK in 11 (JEP 320). The annotation is @Retention(SOURCE), so this never reaches the built jars. -->
+      <dependency>
+         <groupId>javax.annotation</groupId>
+         <artifactId>javax.annotation-api</artifactId>
+         <version>${version.javax.annotation.api}</version>
+         <scope>provided</scope>
+      </dependency>
       <dependency>
          <groupId>org.testng</groupId>
          <artifactId>testng</artifactId>
@@ -1291,16 +1305,6 @@
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>
                 <version>${version.maven.scala}</version>
-                <!-- The script goal's URLClassLoader mangles Windows paths (file://C:\...), so the
-                     script can only load classes from the plugin classloader at runtime; scala-library
-                     must therefore be a dependency of the plugin itself. -->
-                <dependencies>
-                   <dependency>
-                      <groupId>org.scala-lang</groupId>
-                      <artifactId>scala-library</artifactId>
-                      <version>${version.scala}</version>
-                   </dependency>
-                </dependencies>
                 <executions>
                    
                    <execution>
@@ -1330,24 +1334,21 @@
                    </execution>
                    <execution>
                       <id>generate-blueprint</id>
+                      <!-- Kept at phase none on JDK 25: this goal runs the Scala 2.11.5 compiler
+                           (scala.tools.nsc), which does not run on a JVM 25. It only substitutes
+                           ${services} into the OSGi blueprint.xml, which nothing outside an OSGi
+                           container reads. No module may re-bind it to prepare-package. -->
                       <phase>none</phase>
                       <goals>
                          <goal>script</goal>
                       </goals>
                       <configuration>
                          <keepGeneratedScript>true</keepGeneratedScript>
-                         <!-- Drop the plugin-level genjavadoc args/compilerPlugins for this execution:
-                              the script lives in the default package, and genjavadoc writes default-package
-                              stubs to a directory literally named "<empty>", which is invalid on Windows. -->
-                         <args combine.self="override"></args>
-                         <compilerPlugins combine.self="override"></compilerPlugins>
                          <script>
                            
                              import scala.io.Source
                              import java.io.{File, PrintWriter}
-                             // ${project.build.outputDirectory} is interpolated by Maven before compilation;
-                             // the plugin's own `project` script binding never works on Windows.
-                             val serviceDir = new File("""${project.build.outputDirectory}""" + "/META-INF/services")
+                             val serviceDir = new File(project.getBuild().getOutputDirectory() + "/META-INF/services")
                              if (serviceDir.exists &amp;&amp; serviceDir.listFiles.length != 0) {
                                 val services =
                                    for (file &lt;- serviceDir.listFiles; line &lt;- Source.fromFile(file).getLines())
@@ -1356,7 +1357,7 @@
                                           "&lt;bean id=\"" + beanName + "\" class=\"" + line + "\"/&gt;" + "\n" +
                                           "&lt;service ref=\"" + beanName + "\" interface=\"" + file.getName + "\"/&gt;\n"
                                          }
-                                val targetBlueprint = new File("""${project.build.outputDirectory}""" + "/OSGI-INF/blueprint/blueprint.xml")
+                                val targetBlueprint = new File(project.getBuild().getOutputDirectory() + "/OSGI-INF/blueprint/blueprint.xml")
                                 val input = Source.fromFile(targetBlueprint).getLines.mkString("\n")
                                 val output = new PrintWriter(targetBlueprint)
                                 try {
@@ -1407,7 +1408,9 @@
                   <configuration>
                      <rules>
                         <requireJavaVersion>
-                           <version>[${version.java},)</version>
+                           <!-- JDK 21+: javac rejects the proc:full compiler argument (bom/pom.xml) on anything older, and
+                                that argument is what makes annotation processing run at all since JDK 23. -->
+                           <version>[21,)</version>
                         </requireJavaVersion>
                         <requireMavenVersion>
                            <version>[3.1.1,)</version>
@@ -1845,7 +1848,7 @@
          </property>
        </activation>
        <properties>
-         <forkJvmArgs>${env.MAVEN_FORK_OPTS}</forkJvmArgs>
+         <forkJvmArgs>${env.MAVEN_FORK_OPTS} ${forkJvmAddOpens}</forkJvmArgs>
        </properties>
      </profile>
       <profile>
@@ -1950,7 +1953,7 @@
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-surefire-plugin</artifactId>
                   <configuration>
-                     <argLine combine.self="override">-Xmx1024m -XX:MaxPermSize=1024m ${jacocoAgent}</argLine>
+                     <argLine combine.self="override">-Xmx1024m --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.locks=ALL-UNNAMED ${jacocoAgent}</argLine>
                      <parallel combine.self="override">tests</parallel>
                      <threadCount combine.self="override">${infinispan.test.parallel.threads}</threadCount>
                      <groups combine.self="override">${defaultTestGroup}</groups>

@@ -128,20 +128,15 @@
             <excludes>
                <exclude>features.xml</exclude>
                <exclude>schema/**</exclude>
+               <!-- OSGI-INF/blueprint/blueprint.xml is a template whose ${services} placeholder is
+                    substituted by the generate-blueprint goal, disabled on JDK 25. Packaging it
+                    unsubstituted would give the bundle a Blueprint descriptor an OSGi container
+                    fails on - worse than none at all - so the bundle declares no blueprint. -->
+               <exclude>OSGI-INF/**</exclude>
             </excludes>
          </resource>
       </resources>
       <plugins>
-         <plugin>
-            <groupId>org.scala-tools</groupId>
-            <artifactId>maven-scala-plugin</artifactId>
-            <executions>
-               <execution>
-                  <id>generate-blueprint</id>
-                  <phase>prepare-package</phase>
-               </execution>
-            </executions>
-         </plugin>
          <plugin>
             <groupId>org.jboss.maven.plugins</groupId>
             <artifactId>maven-injection-plugin</artifactId>
@@ -183,8 +178,7 @@
                   </Import-Package>
                   <Include-Resource>
                      {maven-resources},
-                     /META-INF/services=${project.basedir}/target/classes/META-INF/services,
-                     /OSGI-INF/blueprint/blueprint.xml=${project.basedir}/target/classes/OSGI-INF/blueprint/blueprint.xml
+                     /META-INF/services=${project.basedir}/target/classes/META-INF/services
                   </Include-Resource>
                   <DynamicImport-Package>*</DynamicImport-Package>
                </instructions>

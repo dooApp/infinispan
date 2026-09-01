@@ -107,16 +107,6 @@
       </resources>
       <plugins>
          <plugin>
-            <groupId>org.scala-tools</groupId>
-            <artifactId>maven-scala-plugin</artifactId>
-            <executions>
-               <execution>
-                  <id>generate-blueprint</id>
-                  <phase>prepare-package</phase>
-               </execution>
-            </executions>
-         </plugin>
-         <plugin>
             <groupId>org.antlr</groupId>
             <artifactId>antlr3-maven-plugin</artifactId>
          </plugin>
